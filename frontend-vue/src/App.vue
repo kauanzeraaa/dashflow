@@ -1,7 +1,7 @@
 <script setup>
-import Header from './components/Header.vue'
+import { useRoute } from 'vue-router'
 </script>
 
 <template>
-  <Header />
+    <router-view />
 </template>
