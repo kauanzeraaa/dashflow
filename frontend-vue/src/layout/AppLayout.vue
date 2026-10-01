@@ -1,10 +1,11 @@
 <script setup>
-import Header from '../components/Header.vue'
+import HeaderLogged from '../components/HeaderLogged.vue'
 </script>
 
 <template>
-	<Header />
+	<HeaderLogged />
 	<main>
 		<router-view />
 	</main>
 </template>
+
