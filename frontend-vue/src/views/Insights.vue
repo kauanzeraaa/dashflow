@@ -22,7 +22,7 @@ const hiringPatterns = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#FFFF] text-[#353535] font-sans flex flex-col">
+  <div class="min-h-screen bg-[#FFFF] text-[#353535] flex flex-col">
     <div class="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10 flex-grow">
 
       <!-- KPI Overview -->
@@ -58,7 +58,7 @@ const hiringPatterns = [
                 </div>
                 <p class="mt-2 text-sm leading-relaxed text-[#353535]/80">{{ tier.description }}</p>
                 <div class="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#F7F8F3] px-3 py-1.5 border border-[#d9d9d9]">
-                  <span class="text-xs font-bold text-[#353535]/60">POTENCIAL IDENTIFICADO:</span>
+                  <span class="text-xs font-bold text-[#353535]/60">Potencial Identificado:</span>
                   <span class="text-sm font-bold text-[#3c6e71]">{{ tier.opportunity }}</span>
                 </div>
               </div>
