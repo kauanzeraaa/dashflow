@@ -22,7 +22,7 @@ const hiringPatterns = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#FFFF] text-[#353535] font-sans flex flex-col">
+  <div class="min-h-screen bg-[#FFFF] text-[#353535] flex flex-col">
     <div class="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10 flex-grow">
 
       <!-- KPI Overview -->
