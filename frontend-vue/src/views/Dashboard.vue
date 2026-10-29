@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-[#f7f8f3] text-[#233f47] font-sans antialiased pb-12">
+  <div class="min-h-screen bg-[#fff] text-[#233f47] font-sans antialiased pb-12">
     <main class="max-w-6xl mx-auto px-4 sm:px-8 pt-6">
       <!-- Boas-vindas e Filtro de Data -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

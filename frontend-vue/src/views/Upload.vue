@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useUploadStore } from '../stores/uploadStore'
 
 const uploadStore = useUploadStore()
@@ -14,6 +14,16 @@ const etapas = [
   'Tratamento',
   'Visualização'
 ]
+
+const colunasPrevia = computed(() =>
+  uploadStore.dados.length
+    ? Object.keys(uploadStore.dados[0])
+    : []
+)
+
+const registrosPrevia = computed(() =>
+  uploadStore.dados.slice(0, 8)
+)
 
 function abrirSeletor() {
   inputArquivo.value?.click()
@@ -49,6 +59,32 @@ function soltarArquivo(event) {
 
 async function iniciarProcessamento() {
   await uploadStore.processarArquivo()
+}
+
+function formatarNomeColuna(coluna) {
+  return coluna
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, letra => letra.toUpperCase())
+}
+
+function formatarValor(valor) {
+  if (valor === null || valor === undefined || valor === '') {
+    return '—'
+  }
+
+  if (Array.isArray(valor)) {
+    return valor.length ? valor.join(', ') : '—'
+  }
+
+  if (valor instanceof Date) {
+    return valor.toLocaleDateString('pt-BR')
+  }
+
+  if (typeof valor === 'number') {
+    return valor.toLocaleString('pt-BR')
+  }
+
+  return String(valor)
 }
 </script>
 
@@ -300,6 +336,83 @@ async function iniciarProcessamento() {
       </p>
 
     </div>
+
+    <!-- Prévia dos dados tratados -->
+    <section
+      v-if="
+        uploadStore.etapa === 5 &&
+        !uploadStore.erro &&
+        uploadStore.dados.length
+      "
+      class="mx-auto mt-8 max-w-6xl overflow-hidden
+             rounded-2xl border border-[#dfe7e1]
+             bg-white shadow-[0_10px_35px_rgba(40,75,99,0.06)]"
+    >
+      <div
+        class="flex flex-col gap-2 border-b
+               border-[#edf0ed] px-5 py-5
+               sm:flex-row sm:items-center
+               sm:justify-between sm:px-6"
+      >
+        <div>
+          <h3
+            class="text-base font-bold text-[#284b50]"
+          >
+            Prévia dos dados tratados
+          </h3>
+          <p
+            class="mt-1 text-xs text-[#718281]"
+          >
+            Confira os primeiros registros após a padronização do arquivo.
+          </p>
+        </div>
+
+        <span
+          class="w-fit rounded-full bg-[#f7f8f3]
+                 px-3 py-1 text-xs font-semibold
+                 text-[#557174]"
+        >
+          {{ registrosPrevia.length }} de {{ uploadStore.dados.length }} registros
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left">
+          <thead class="bg-[#f7f8f3]">
+            <tr>
+              <th
+                v-for="coluna in colunasPrevia"
+                :key="coluna"
+                scope="col"
+                class="whitespace-nowrap border-b
+                       border-[#dfe7e1] px-5 py-3
+                       text-[10px] font-bold uppercase
+                       tracking-wide text-[#557174]"
+              >
+                {{ formatarNomeColuna(coluna) }}
+              </th>
+            </tr>
+          </thead>
+
+          <tbody class="divide-y divide-[#edf0ed]">
+            <tr
+              v-for="(registro, index) in registrosPrevia"
+              :key="index"
+              class="transition-colors hover:bg-[#fbfcfa]"
+            >
+              <td
+                v-for="coluna in colunasPrevia"
+                :key="`${index}-${coluna}`"
+                class="max-w-56 whitespace-nowrap
+                       px-5 py-3 text-xs text-[#4d4d4d]"
+              >
+                {{ formatarValor(registro[coluna]) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- Remover arquivo -->
     <div
