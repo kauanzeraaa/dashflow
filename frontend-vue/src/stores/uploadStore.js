@@ -8,7 +8,8 @@ export const useUploadStore = defineStore('upload', {
     etapa: 0,
     mensagem: 'Aguardando anexo do arquivo',
     erro: '',
-    errosValidacao: []
+    errosValidacao: [],
+    processando: false
   }),
 
   actions: {
@@ -51,6 +52,7 @@ export const useUploadStore = defineStore('upload', {
         return
       }
 
+      this.processando = true
       this.erro = ''
       this.errosValidacao = []
 
@@ -71,6 +73,8 @@ export const useUploadStore = defineStore('upload', {
         this.erro =
           erro.message ||
           'Não foi possível processar a planilha.'
+      } finally {
+        this.processando = false
       }
     },
 
@@ -129,10 +133,10 @@ export const useUploadStore = defineStore('upload', {
 
       await this.aguardar(700)
 
-      this.validarDados()
+      await this.validarDados()
     },
 
-    validarDados() {
+    async validarDados() {
       this.errosValidacao = []
 
       const colunasObrigatorias = [
@@ -147,7 +151,7 @@ export const useUploadStore = defineStore('upload', {
       ]
 
       const primeiraLinha =
-        this.dados[0]
+        this.dados[0] || {}
 
       // Verifica se as colunas existem
       for (
@@ -158,19 +162,6 @@ export const useUploadStore = defineStore('upload', {
             `Coluna obrigatória ausente: ${coluna}`
           )
         }
-      }
-
-      // Se a estrutura estiver errada,
-      // não continua a validação
-      if (
-        this.errosValidacao.length > 0
-      ) {
-        this.etapa = 3
-        this.erro =
-          'A estrutura da planilha é inválida.'
-        this.mensagem =
-          'Validação concluída com erros.'
-        return
       }
 
       const codigosEncontrados =
@@ -266,28 +257,14 @@ export const useUploadStore = defineStore('upload', {
         }
       )
 
-      // Se encontrou problemas,
-      // interrompe o processamento
-      if (
-        this.errosValidacao.length > 0
-      ) {
-        this.etapa = 3
-
-        this.erro =
-          `Foram encontrados ${this.errosValidacao.length} problemas na planilha.`
-
-        this.mensagem =
-          'Validação concluída com erros.'
-
-        return
-      }
-
-      // Nenhum erro encontrado
+      // Etapa 4 - Tratamento (continua mesmo com problemas encontrados na validação)
       this.etapa = 4
       this.mensagem =
-        'Validação concluída. Tratando os dados...'
+        this.errosValidacao.length > 0
+          ? `Validação com ${this.errosValidacao.length} problema(s). Tratando os dados...`
+          : 'Validação concluída. Tratando os dados...'
 
-      this.tratarDados()
+      await this.tratarDados()
     },
 
     async tratarDados() {
@@ -299,11 +276,13 @@ export const useUploadStore = defineStore('upload', {
             ...registro,
 
             codigo_cliente:
-              String(
-                registro.codigo_cliente
-              )
-                .trim()
-                .toUpperCase(),
+              registro.codigo_cliente !== null && registro.codigo_cliente !== undefined
+                ? String(
+                    registro.codigo_cliente
+                  )
+                    .trim()
+                    .toUpperCase()
+                : '',
 
             nome_cliente:
               this.formatarTexto(
@@ -321,16 +300,22 @@ export const useUploadStore = defineStore('upload', {
               ),
 
             nivel_cliente:
-              String(
-                registro.nivel_cliente
-              )
-                .trim()
-                .toUpperCase(),
+              registro.nivel_cliente !== null && registro.nivel_cliente !== undefined
+                ? String(
+                    registro.nivel_cliente
+                  )
+                    .trim()
+                    .toUpperCase()
+                : '',
 
             faturamento_anual:
-              Number(
-                registro.faturamento_anual
-              ),
+              registro.faturamento_anual !== null &&
+              registro.faturamento_anual !== undefined &&
+              !Number.isNaN(Number(registro.faturamento_anual))
+                ? Number(
+                    registro.faturamento_anual
+                  )
+                : (registro.faturamento_anual ?? ''),
 
             servicos_contratados:
               this.tratarServicos(
@@ -345,7 +330,7 @@ export const useUploadStore = defineStore('upload', {
                 : '',
 
             uf:
-              registro.uf
+              registro.uf !== null && registro.uf !== undefined
                 ? String(registro.uf)
                     .trim()
                     .toUpperCase()
@@ -353,11 +338,98 @@ export const useUploadStore = defineStore('upload', {
           })
         )
 
-      // Etapa 5 - Finalizado
+      // Etapa 5 - Finalizado / Visualização
       this.etapa = 5
 
-      this.mensagem =
-        `${this.dados.length} registros processados com sucesso.`
+      if (this.errosValidacao.length > 0) {
+        this.erro = ''
+        this.mensagem = `${this.dados.length} registros processados com ${this.errosValidacao.length} problema(s) encontrado(s).`
+      } else {
+        this.erro = ''
+        this.mensagem =
+          `${this.dados.length} registros processados com sucesso.`
+      }
+    },
+
+    baixarRelatorio() {
+      if (!this.dados || !this.dados.length) {
+        return
+      }
+
+      const wb = XLSX.utils.book_new()
+
+      // 1. Aba Dados Processados
+      const dadosExportacao = this.dados.map((registro, idx) => {
+        const item = {
+          '#': idx + 1,
+          'Código': registro.codigo_cliente ?? '',
+          'Nome do Cliente': registro.nome_cliente ?? '',
+          'Consultor': registro.consultor ?? '',
+          'Segmento': registro.segmento ?? '',
+          'Nível': registro.nivel_cliente ?? '',
+          'Faturamento Anual':
+            typeof registro.faturamento_anual === 'number'
+              ? registro.faturamento_anual
+              : (registro.faturamento_anual ?? ''),
+          'Serviços Contratados': Array.isArray(registro.servicos_contratados)
+            ? registro.servicos_contratados.join(', ')
+            : (registro.servicos_contratados ?? ''),
+          'Cidade': registro.cidade ?? '',
+          'UF': registro.uf ?? ''
+        }
+
+        // Preserva colunas extras se houverem
+        const chavesPadrao = new Set([
+          'codigo_cliente',
+          'nome_cliente',
+          'consultor',
+          'segmento',
+          'nivel_cliente',
+          'faturamento_anual',
+          'servicos_contratados',
+          'cidade',
+          'uf'
+        ])
+
+        for (const [chave, valor] of Object.entries(registro)) {
+          if (!chavesPadrao.has(chave)) {
+            item[chave] = Array.isArray(valor) ? valor.join(', ') : (valor ?? '')
+          }
+        }
+
+        return item
+      })
+
+      const wsDados = XLSX.utils.json_to_sheet(dadosExportacao)
+      XLSX.utils.book_append_sheet(wb, wsDados, 'Dados Processados')
+
+      // 2. Aba Resumo
+      const resumo = [
+        { Propriedade: 'Arquivo de Origem', Valor: this.arquivo?.name || 'arquivo.xlsx' },
+        { Propriedade: 'Data/Hora do Processamento', Valor: new Date().toLocaleString('pt-BR') },
+        { Propriedade: 'Total de Registros', Valor: this.dados.length },
+        { Propriedade: 'Status da Validação', Valor: this.errosValidacao.length > 0 ? 'Concluído com apontamentos' : 'Concluído com sucesso' },
+        { Propriedade: 'Total de Problemas Encontrados', Valor: this.errosValidacao.length }
+      ]
+      const wsResumo = XLSX.utils.json_to_sheet(resumo)
+      XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo')
+
+      // 3. Aba Problemas Encontrados (se houver)
+      if (this.errosValidacao.length > 0) {
+        const erros = this.errosValidacao.map((erro, index) => ({
+          '#': index + 1,
+          'Problema / Apontamento': erro
+        }))
+        const wsErros = XLSX.utils.json_to_sheet(erros)
+        XLSX.utils.book_append_sheet(wb, wsErros, 'Problemas Encontrados')
+      }
+
+      const nomeBase = this.arquivo?.name
+        ? this.arquivo.name.replace(/\.[^/.]+$/, '')
+        : 'dados'
+      const nomeArquivo = `relatorio_${nomeBase}_processado.xlsx`
+
+      XLSX.writeFile(wb, nomeArquivo)
     },
 
     formatarTexto(valor) {
@@ -449,6 +521,7 @@ export const useUploadStore = defineStore('upload', {
         'Aguardando anexo do arquivo'
       this.erro = ''
       this.errosValidacao = []
+      this.processando = false
     }
   }
 })
