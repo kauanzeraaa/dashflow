@@ -17,7 +17,7 @@ const etapas = [
 
 const colunasPrevia = computed(() =>
   uploadStore.dados.length
-    ? Object.keys(uploadStore.dados[0])
+    ? Object.keys(uploadStore.dados[0]).filter(c => !c.startsWith('_'))
     : []
 )
 
@@ -174,7 +174,7 @@ function formatarValor(valor) {
         >
           {{
             uploadStore.processando
-              ? 'Processando arquivo automaticamente...'
+              ? 'Processando arquivo...'
               : uploadStore.arquivo
                 ? uploadStore.arquivo.name
                 : 'Selecione o Arquivo para o Processamento'
@@ -186,8 +186,8 @@ function formatarValor(valor) {
         >
           {{
             uploadStore.processando
-              ? 'Aguarde a captura, validação e tratamento dos dados...'
-              : 'Clique ou arraste um arquivo XLS/XLSX para processar de forma automática'
+              ? 'Aguarde a validação e tratamento dos dados...'
+              : 'Clique ou arraste um arquivo XLS/XLSX'
           }}
         </p>
       </div>
@@ -315,7 +315,7 @@ function formatarValor(valor) {
       </ul>
     </div>
 
-    <!-- Sucesso (quando 100% sem erros de validação) -->
+    <!-- Sucesso (quando sem erros de validação) -->
     <div
       v-if="
         uploadStore.etapa === 5 &&
@@ -349,13 +349,46 @@ function formatarValor(valor) {
 
     </div>
 
-    <!-- Prévia dos dados tratados (exibida mesmo se houverem problemas encontrados) -->
+    <!-- Resumo rápido dos dados processados -->
+    <div
+      v-if="uploadStore.etapa === 5 && uploadStore.estatisticas"
+      class="mx-auto mt-6 flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dfe7e1] bg-white px-5 py-3 text-xs text-[#557174] shadow-sm"
+    >
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-[#284b50]">Linhas lidas:</span>
+        <span>{{ uploadStore.estatisticas.totalLinhas }}</span>
+      </div>
+      <div class="hidden h-3 w-px bg-[#e4e4e4] sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-[#284b50]">Colunas:</span>
+        <span>{{ uploadStore.estatisticas.totalColunas }}</span>
+      </div>
+      <div class="hidden h-3 w-px bg-[#e4e4e4] sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-[#284b50]">Linhas sem erros:</span>
+        <span class="text-green-700 font-medium">{{ uploadStore.estatisticas.linhasValidas }}</span>
+      </div>
+      <div class="hidden h-3 w-px bg-[#e4e4e4] sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-[#284b50]">Conflitos:</span>
+        <span :class="uploadStore.estatisticas.totalConflitos > 0 ? 'font-medium text-amber-700' : 'text-[#777]'">
+          {{ uploadStore.estatisticas.totalConflitos }}
+        </span>
+      </div>
+      <div class="hidden h-3 w-px bg-[#e4e4e4] sm:block"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-[#284b50]">Faturamento:</span>
+        <span>{{ uploadStore.estatisticas.faturamentoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) }}</span>
+      </div>
+    </div>
+
+    <!-- Prévia dos dados tratados -->
     <section
       v-if="
         uploadStore.etapa === 5 &&
         uploadStore.dados.length
       "
-      class="mx-auto mt-8 max-w-6xl overflow-hidden
+      class="mx-auto mt-6 max-w-6xl overflow-hidden
              rounded-2xl border border-[#dfe7e1]
              bg-white shadow-[0_10px_35px_rgba(40,75,99,0.06)]"
     >
@@ -374,7 +407,7 @@ function formatarValor(valor) {
           <p
             class="mt-1 text-xs text-[#718281]"
           >
-            Confira os primeiros registros após a padronização do arquivo.
+            Confira os primeiros registros processados.
           </p>
         </div>
 
@@ -387,7 +420,7 @@ function formatarValor(valor) {
             {{ registrosPrevia.length }} de {{ uploadStore.dados.length }} registros
           </span>
 
-          <!-- Botão para Baixar Relatório -->
+          <!-- Botão para Baixar Relatório em PDF -->
           <button
             type="button"
             @click="baixarRelatorio"
@@ -407,10 +440,15 @@ function formatarValor(valor) {
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 11v6m0 0l-2.5-2.5M12 17l2.5-2.5"
               />
             </svg>
-            Baixar Relatório (.xlsx)
+            Baixar Relatório (PDF)
           </button>
         </div>
       </div>
@@ -419,6 +457,17 @@ function formatarValor(valor) {
         <table class="min-w-full text-left">
           <thead class="bg-[#f7f8f3]">
             <tr>
+              <!-- Coluna de Status da Linha -->
+              <th
+                scope="col"
+                class="whitespace-nowrap border-b
+                       border-[#dfe7e1] px-5 py-3
+                       text-[10px] font-bold uppercase
+                       tracking-wide text-[#557174]"
+              >
+                Status
+              </th>
+
               <th
                 v-for="coluna in colunasPrevia"
                 :key="coluna"
@@ -439,6 +488,25 @@ function formatarValor(valor) {
               :key="index"
               class="transition-colors hover:bg-[#fbfcfa]"
             >
+              <!-- Indicador de Status por Linha -->
+              <td class="whitespace-nowrap px-5 py-3 text-xs">
+                <span
+                  v-if="registro._problemas && registro._problemas.length > 0"
+                  :title="registro._problemas.join('; ')"
+                  class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                  Alerta ({{ registro._problemas.length }})
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-green-700"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                  OK
+                </span>
+              </td>
+
               <td
                 v-for="coluna in colunasPrevia"
                 :key="`${index}-${coluna}`"
@@ -458,7 +526,6 @@ function formatarValor(valor) {
       v-if="uploadStore.arquivo"
       class="mt-6 flex flex-wrap items-center justify-center gap-3"
     >
-      <!-- Botão de download do relatório também no rodapé para facilidade de acesso -->
       <button
         v-if="uploadStore.etapa === 5 && uploadStore.dados.length"
         type="button"
@@ -479,10 +546,15 @@ function formatarValor(valor) {
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
-            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+          />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 11v6m0 0l-2.5-2.5M12 17l2.5-2.5"
           />
         </svg>
-        Baixar relatório dos dados processados
+        Baixar relatório dos dados processados (PDF)
       </button>
 
       <button
